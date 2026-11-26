@@ -1,0 +1,210 @@
+/* Harbor Wings — HUD and overlay styling.
+   Deep-teal glass panels, cream type, amber accents: one instrument style
+   across every screen so the HUD reads as a flown panel, not a web page. */
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body { width: 100%; height: 100%; overflow: hidden; background: #0b2530; }
+
+body {
+  font-family: "Avenir Next", "Segoe UI", Verdana, sans-serif;
+  color: #f3ead2;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+#app { position: relative; width: 100%; height: 100%; }
+
+#gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+.hidden { display: none !important; }
+
+/* ---------------- HUD panels ---------------- */
+
+.panel {
+  position: absolute;
+  background: rgba(8, 32, 42, 0.78);
+  border: 1px solid rgba(243, 234, 210, 0.28);
+  border-radius: 10px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(2px);
+}
+
+#mission-panel { top: 14px; left: 14px; width: 252px; padding: 10px 12px 9px; }
+
+#mission-title {
+  font-size: 17px; font-weight: 800; letter-spacing: 1.5px; color: #ffb648;
+}
+
+#mission-objective { font-size: 12.5px; margin: 2px 0 7px; color: #e8dfc8; line-height: 1.35; }
+
+#mission-steps { list-style: none; font-size: 12px; line-height: 1.5; }
+
+#mission-steps li { color: #9fb4ac; padding-left: 18px; position: relative; }
+
+#mission-steps li::before { content: "○"; position: absolute; left: 2px; color: #7d938a; }
+
+#mission-steps li.done { color: #d9cfae; }
+
+#mission-steps li.done::before { content: "●"; color: #8fd14f; }
+
+#mission-steps li.active { color: #ffffff; font-weight: 700; }
+
+#mission-steps li.active::before { content: "▸"; color: #ffb648; }
+
+#mission-dist {
+  margin-top: 7px; padding-top: 6px; border-top: 1px solid rgba(243, 234, 210, 0.2);
+  font-size: 11px; letter-spacing: 1px; color: #9fb4ac;
+}
+
+#mission-dist b { color: #ffd98a; font-size: 13px; margin-left: 4px; }
+
+#compass-wrap { top: 14px; left: 50%; transform: translateX(-50%); padding: 5px 10px 3px; text-align: center; }
+
+#compass-hdg { font-size: 13px; font-weight: 800; letter-spacing: 2px; color: #ffd98a; margin-top: 1px; }
+
+#score-panel { top: 14px; right: 14px; padding: 9px 14px; min-width: 148px; }
+
+.score-row { display: flex; justify-content: space-between; gap: 18px; font-size: 13px; padding: 2px 0; }
+
+.score-row span { color: #9fb4ac; letter-spacing: 1.5px; font-size: 11px; padding-top: 2px; }
+
+.score-row b { color: #ffffff; font-size: 16px; }
+
+#readouts { right: 14px; top: 108px; padding: 9px 12px; display: flex; gap: 16px; }
+
+.readout { text-align: center; }
+
+.readout span { display: block; font-size: 10px; letter-spacing: 2px; color: #9fb4ac; }
+
+.readout b { font-size: 23px; font-weight: 800; color: #ffffff; font-variant-numeric: tabular-nums; }
+
+.readout i { font-style: normal; font-size: 10px; color: #7d938a; margin-left: 2px; }
+
+.readout.warn b { color: #ff5d47; }
+
+#gauges { left: 14px; bottom: 14px; padding: 8px 10px 4px; }
+
+#bars { right: 14px; bottom: 14px; padding: 10px 12px; width: 252px; }
+
+.bar-row { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
+
+.bar-row span { width: 38px; font-size: 10.5px; letter-spacing: 1px; color: #9fb4ac; font-weight: 700; }
+
+.bar-row b { width: 34px; text-align: right; font-size: 12px; color: #f3ead2; font-variant-numeric: tabular-nums; }
+
+.bar { flex: 1; height: 11px; background: rgba(255, 255, 255, 0.12); border-radius: 6px; overflow: hidden; border: 1px solid rgba(0, 0, 0, 0.4); }
+
+.fill { height: 100%; width: 100%; border-radius: 6px; transition: width 0.15s linear; }
+
+.fill.thr { background: linear-gradient(90deg, #2e7fa8, #6fc3e7); }
+.fill.fuel { background: linear-gradient(90deg, #c98f1b, #ffb648); }
+.fill.hull { background: linear-gradient(90deg, #3f9e4d, #8fd14f); }
+.fill.hoist { background: linear-gradient(90deg, #b04df0, #e08fff); }
+
+.fill.low { background: linear-gradient(90deg, #c22e1b, #ff5d47) !important; }
+
+#crosshair {
+  position: absolute; left: 50%; top: 50%; width: 34px; height: 34px;
+  transform: translate(-50%, -50%); pointer-events: none; opacity: 0.85;
+}
+
+#crosshair::before, #crosshair::after {
+  content: ""; position: absolute; background: rgba(255, 217, 138, 0.9);
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.6);
+}
+
+#crosshair::before { left: 50%; top: 0; width: 2px; height: 100%; transform: translateX(-50%); }
+#crosshair::after { top: 50%; left: 0; height: 2px; width: 100%; transform: translateY(-50%); }
+
+#warning {
+  position: absolute; left: 50%; top: 21%; transform: translateX(-50%);
+  font-size: 30px; font-weight: 900; letter-spacing: 6px; color: #ff5d47;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.7); animation: blink 0.5s steps(2) infinite;
+}
+
+@keyframes blink { 50% { opacity: 0.25; } }
+
+#toast {
+  position: absolute; left: 50%; top: 12.5%; transform: translateX(-50%);
+  background: rgba(8, 32, 42, 0.88); border: 1px solid rgba(255, 182, 72, 0.65);
+  color: #ffd98a; font-size: 16.5px; font-weight: 700; letter-spacing: 0.4px;
+  padding: 8px 20px; border-radius: 8px; white-space: nowrap;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+#vignette {
+  position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 62%, rgba(4, 18, 24, 0.38) 100%);
+}
+
+/* ---------------- Overlays (menu / debrief) ---------------- */
+
+.overlay {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(180deg, rgba(6, 24, 32, 0.42), rgba(6, 24, 32, 0.66));
+  z-index: 5;
+}
+
+.menu-card {
+  width: 880px; max-width: 94%; text-align: center; padding: 30px 38px 26px;
+  background: rgba(7, 28, 38, 0.88); border: 1px solid rgba(255, 182, 72, 0.4);
+  border-radius: 16px; box-shadow: 0 18px 60px rgba(0, 0, 0, 0.55);
+}
+
+.menu-kicker { font-size: 12px; letter-spacing: 4px; color: #8fd1e7; font-weight: 700; }
+
+.menu-card h1 {
+  font-size: 54px; font-weight: 900; letter-spacing: 3px; color: #ffffff; margin: 6px 0 4px;
+  text-shadow: 0 3px 0 rgba(0, 0, 0, 0.35);
+}
+
+.menu-card h1 span { color: #ffb648; }
+
+.menu-sub { font-size: 15px; color: #d9cfae; margin-bottom: 18px; }
+
+.mission-cards { display: flex; gap: 14px; margin-bottom: 16px; }
+
+.mission-card {
+  flex: 1; text-align: left; cursor: pointer; padding: 14px 15px 12px;
+  background: rgba(16, 52, 66, 0.9); border: 1px solid rgba(243, 234, 210, 0.25);
+  border-radius: 12px; color: #f3ead2; font-family: inherit;
+  transition: transform 0.12s ease, border-color 0.12s ease, background 0.12s ease;
+}
+
+.mission-card:hover { transform: translateY(-3px); border-color: #ffb648; background: rgba(24, 70, 86, 0.95); }
+
+.mission-card b { font-size: 15px; letter-spacing: 1px; color: #ffd98a; }
+
+.mission-card p { font-size: 12.5px; line-height: 1.45; color: #cfd8cc; margin: 7px 0 8px; min-height: 54px; }
+
+.mission-card i { font-style: normal; font-size: 11px; letter-spacing: 0.6px; color: #8fd1e7; text-transform: uppercase; }
+
+.controls-line { display: flex; justify-content: center; gap: 22px; font-size: 12.5px; color: #9fb4ac; }
+
+.controls-line b { color: #f3ead2; background: rgba(255, 255, 255, 0.1); padding: 1px 6px; border-radius: 4px; margin-right: 4px; }
+
+.debrief-card { width: 560px; }
+
+#debrief-table { width: 100%; border-collapse: collapse; margin: 14px 0 10px; font-size: 15px; }
+
+#debrief-table td { padding: 6px 8px; border-bottom: 1px solid rgba(243, 234, 210, 0.14); text-align: left; color: #cfd8cc; }
+
+#debrief-table td:last-child { text-align: right; color: #ffffff; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+.debrief-total {
+  display: flex; justify-content: space-between; align-items: baseline;
+  padding: 10px 8px 4px; font-size: 14px; letter-spacing: 2px; color: #9fb4ac;
+}
+
+.debrief-total b { font-size: 34px; color: #ffb648; }
+
+.debrief-buttons { display: flex; gap: 12px; justify-content: center; margin-top: 14px; }
+
+.debrief-buttons button {
+  cursor: pointer; font-family: inherit; font-size: 14px; font-weight: 800; letter-spacing: 1.5px;
+  padding: 11px 22px; border-radius: 9px; border: 1px solid rgba(255, 182, 72, 0.6);
+  background: rgba(255, 182, 72, 0.14); color: #ffd98a;
+}
+
+.debrief-buttons button:hover { background: rgba(255, 182, 72, 0.3); color: #ffffff; }

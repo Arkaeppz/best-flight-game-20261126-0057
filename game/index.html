@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Harbor Wings — Seaplane Mail &amp; Rescue</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="app">
+  <canvas id="gl"></canvas>
+
+  <!-- ======================= HUD ======================= -->
+  <div id="hud" class="hidden">
+    <div id="mission-panel" class="panel">
+      <div id="mission-title">MAIL RUN</div>
+      <div id="mission-objective">Fly the mail course</div>
+      <ul id="mission-steps"></ul>
+      <div id="mission-dist">TARGET <b id="dist-value">—</b></div>
+    </div>
+
+    <div id="compass-wrap" class="panel">
+      <canvas id="compass" width="360" height="34"></canvas>
+      <div id="compass-hdg">000°</div>
+    </div>
+
+    <div id="score-panel" class="panel">
+      <div class="score-row"><span>SCORE</span><b id="score-value">0</b></div>
+      <div class="score-row"><span>TIME</span><b id="time-value">0:00</b></div>
+    </div>
+
+    <div id="readouts" class="panel">
+      <div class="readout"><span>ALT</span><b id="alt-value">0</b><i>ft</i></div>
+      <div class="readout"><span>SPD</span><b id="spd-value">0</b><i>kt</i></div>
+      <div class="readout"><span>HDG</span><b id="hdg-value">000</b><i>°</i></div>
+      <div class="readout"><span>V/S</span><b id="vs-value">0</b><i>fpm</i></div>
+    </div>
+
+    <div id="gauges" class="panel">
+      <canvas id="gauge-cluster" width="318" height="118"></canvas>
+    </div>
+
+    <div id="bars" class="panel">
+      <div class="bar-row"><span>THR</span><div class="bar"><div id="thr-fill" class="fill thr"></div></div><b id="thr-value">0%</b></div>
+      <div class="bar-row"><span>FUEL</span><div class="bar"><div id="fuel-fill" class="fill fuel"></div></div><b id="fuel-value">100</b></div>
+      <div class="bar-row"><span>HULL</span><div class="bar"><div id="hull-fill" class="fill hull"></div></div><b id="hull-value">100</b></div>
+      <div id="hoist-row" class="bar-row hidden"><span>HOIST</span><div class="bar"><div id="hoist-fill" class="fill hoist"></div></div><b id="hoist-value">0%</b></div>
+    </div>
+
+    <div id="crosshair"></div>
+    <div id="warning" class="hidden">STALL</div>
+    <div id="toast" class="hidden"></div>
+    <div id="vignette"></div>
+  </div>
+
+  <!-- ======================= MENU ======================= -->
+  <div id="menu" class="overlay">
+    <div class="menu-card">
+      <div class="menu-kicker">PORT AZURE · AZURE ARCHIPELAGO</div>
+      <h1>HARBOR <span>WINGS</span></h1>
+      <p class="menu-sub">Seaplane mail &amp; rescue. One floatplane, three sorties, and the volcano is smoking again.</p>
+      <div class="mission-cards">
+        <button class="mission-card" data-mission="mail">
+          <b>1 · MAIL RUN</b>
+          <p>Thread five rings over the coast, the Rio Verde and Gull Rock light, then land the mail at Port Azure.</p>
+          <i>Course flying · judged landing</i>
+        </button>
+        <button class="mission-card" data-mission="rescue">
+          <b>2 · HARBOR RESCUE</b>
+          <p>A fishing boat is sinking in the bay. Get low, get slow, hoist three sailors off her deck and bring them home.</p>
+          <i>Hoist work · fuel discipline</i>
+        </button>
+        <button class="mission-card" data-mission="survey">
+          <b>3 · VOLCANO SURVEY</b>
+          <p>Photograph four vents on Mount Kora through the updrafts, then glide home before the ash eats your engine.</p>
+          <i>Updrafts · damage risk</i>
+        </button>
+      </div>
+      <div class="controls-line">
+        <span><b>W/S</b> throttle</span><span><b>↑/↓</b> pitch</span><span><b>←/→</b> bank</span>
+        <span><b>A/D</b> rudder</span><span><b>C</b> cockpit view</span><span><b>R</b> restart</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================= DEBRIEF ======================= -->
+  <div id="debrief" class="overlay hidden">
+    <div class="menu-card debrief-card">
+      <div class="menu-kicker" id="debrief-kicker">SORTIE COMPLETE</div>
+      <h1 id="debrief-title">MAIL DELIVERED</h1>
+      <table id="debrief-table"></table>
+      <div class="debrief-total"><span>TOTAL SCORE</span><b id="debrief-score">0</b></div>
+      <div class="debrief-buttons">
+        <button id="btn-again">FLY IT AGAIN</button>
+        <button id="btn-menu">MISSION SELECT</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="vendor/three.min.js"></script>
+<script src="js/rng.js"></script>
+<script src="js/terrain.js"></script>
+<script src="js/aircraft.js"></script>
+<script src="js/flight.js"></script>
+<script src="js/missions.js"></script>
+<script src="js/hud.js"></script>
+<script src="js/camera.js"></script>
+<script src="js/sound.js"></script>
+<script src="js/shots.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
