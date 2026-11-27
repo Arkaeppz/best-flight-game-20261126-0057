@@ -89,6 +89,7 @@ HW.HUD = {
     else if (state.engineOut) warn = 'ENGINE OUT — GLIDE!';
     else if (state.fuel < 25 && !state.onGround) warn = 'LOW FUEL';
     else if (state.hull < 35 && !state.onGround) warn = 'HULL CRITICAL';
+    else if (state.inWeather) warn = 'RAIN CELL — GUSTS';
     if (warn) { e.warning.textContent = warn; e.warning.classList.remove('hidden'); }
     else e.warning.classList.add('hidden');
 

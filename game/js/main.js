@@ -12,17 +12,24 @@ window.HW = window.HW || {};
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.06;
+  renderer.toneMappingExposure = 1.1;
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.Fog(0xd7e6ec, 1000, 5600);
+  // Dusk grade (v2.3): every light and the fog read the ONE palette in
+  // terrain.js (HW.DUSK) — the same object the sky shader and water
+  // ramp read — so sky, haze, light and sea agree on one sunset. The
+  // fog colour is the palette's horizon tone: distant terrain melts
+  // into the sky's own hue (fake aerial perspective). The HUD keeps
+  // its own dark panel backings, so the grade cannot wash it out.
+  const DUSK = HW.DUSK;
+  scene.fog = new THREE.Fog(DUSK.fog, 850, 4700);
 
   const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.5, 16000);
   camera.position.set(300, 90, 1500);
 
-  const hemi = new THREE.HemisphereLight(0xcfe5f2, 0x51683f, 0.95);
+  const hemi = new THREE.HemisphereLight(DUSK.hemiSky, DUSK.hemiGround, 0.85);
   scene.add(hemi);
-  const sun = new THREE.DirectionalLight(0xfff0d0, 2.4);
+  const sun = new THREE.DirectionalLight(DUSK.sun, 2.3);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
   sun.shadow.camera.left = -240; sun.shadow.camera.right = 240;
@@ -33,9 +40,49 @@ window.HW = window.HW || {};
   scene.add(sun);
   scene.add(sun.target);
 
+  // Grade without post-processing (hunt round 2): a shared
+  // onBeforeCompile vibrance patch lifts saturation in the midtones of
+  // every lit material — the cheap half of the leaders' illustrated
+  // dusk — and the aircraft's materials additionally get a warm
+  // fresnel rim from the sun side, so the hero separates from the sky.
+  // ACES filmic tone mapping (set on the renderer above) does the
+  // other half. Unlit materials (sky, HUD panels, glows, sprites) are
+  // deliberately untouched: they already carry the palette raw.
+  function gradeMaterial(mat, rim) {
+    if (!mat || mat.userData.hwGraded) return;
+    if (!(mat.isMeshStandardMaterial || mat.isMeshPhongMaterial)) return;
+    mat.userData.hwGraded = true;
+    mat.customProgramCacheKey = () => (rim ? 'hw-grade-rim' : 'hw-grade');
+    mat.onBeforeCompile = (shader) => {
+      shader.fragmentShader = shader.fragmentShader
+        .replace('#include <color_fragment>', `#include <color_fragment>
+          { float hwL = dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114));
+            float hwMx = max(diffuseColor.r, max(diffuseColor.g, diffuseColor.b));
+            float hwMn = min(diffuseColor.r, min(diffuseColor.g, diffuseColor.b));
+            float hwVib = 1.0 + 0.20 * (1.0 - clamp((hwMx - hwMn) * 1.6, 0.0, 1.0));
+            diffuseColor.rgb = mix(vec3(hwL), diffuseColor.rgb, hwVib); }`)
+        .replace('#include <opaque_fragment>', (rim
+          ? `{ vec3 hwV = normalize(vViewPosition);
+               float hwF = pow(1.0 - clamp(dot(normalize(normal), hwV), 0.0, 1.0), 2.5);
+               outgoingLight += vec3(1.0, 0.62, 0.34) * hwF * 0.38; }
+             `
+          : '') + '#include <opaque_fragment>');
+    };
+  }
+  const gradeTree = (root, rim) => root.traverse((o) => {
+    if (Array.isArray(o.material)) o.material.forEach((m) => gradeMaterial(m, rim));
+    else if (o.material) gradeMaterial(o.material, rim);
+  });
+
   const world = HW.buildWorld(scene);
+  gradeTree(scene, false);
   const plane = HW.buildAircraft();
   scene.add(plane);
+  gradeTree(plane, true);
+  // The contact shadow blob that grounds the aircraft (field gap 4):
+  // parked on the surface below the airframe by syncPlane.
+  const shadowBlob = HW.makeShadowBlob();
+  scene.add(shadowBlob);
 
   HW.HUD.init();
 
@@ -43,6 +90,12 @@ window.HW = window.HW || {};
   let mission = null;
   let mode = 'menu';
   let endTimer = 0;
+  // The campaign record: one grade per sortie, filled in as sorties are
+  // flown this session. The debrief shows the whole arc — mail, rescue,
+  // survey — not just the sortie that just ended.
+  const campaign = { mail: null, rescue: null, survey: null };
+  const CAMPAIGN_ORDER = [['mail', '1 · MAIL RUN'], ['rescue', '2 · HARBOR RESCUE'], ['survey', '3 · VOLCANO SURVEY']];
+  const GRADE_LETTER = { PERFECT: 'S', SMOOTH: 'A', FIRM: 'B', ROUGH: 'C', CRASH: '—' };
   let prevTouchdownId = 0;
   let prevCounters = { rings: 0, gates: 0, sailors: 0 };
   let beepTimer = 0;
@@ -98,6 +151,9 @@ window.HW = window.HW || {};
   function showDebrief() {
     mode = 'debrief';
     const d = mission.debrief(state);
+    if (mission.finished && mission.landing) {
+      campaign[mission.id] = { grade: mission.landing.grade, total: d.total };
+    }
     document.getElementById('debrief-kicker').textContent =
       mission.failed ? 'MISSION FAILED' : 'SORTIE COMPLETE';
     document.getElementById('debrief-title').textContent =
@@ -106,6 +162,13 @@ window.HW = window.HW || {};
       ? [['Outcome', mission.failReason], ['Score banked', String(mission.score)],
          ['Fuel remaining', `${Math.round(state.fuel)}%`], ['Hull integrity', `${Math.round(state.hull)}%`]]
       : d.rows;
+    if (!mission.failed) {
+      rows.push(['— CAMPAIGN · PORT AZURE —', '']);
+      for (const [id, label] of CAMPAIGN_ORDER) {
+        const rec = campaign[id];
+        rows.push([label, rec ? `GRADE ${GRADE_LETTER[rec.grade] || '—'} · ${rec.total} pts` : 'NOT FLOWN']);
+      }
+    }
     document.getElementById('debrief-table').innerHTML =
       rows.map(([a, b]) => `<tr><td>${a}</td><td>${b}</td></tr>`).join('');
     document.getElementById('debrief-score').textContent = mission.failed ? mission.score : d.total;
@@ -197,8 +260,28 @@ window.HW = window.HW || {};
     } else {
       plane.userData.prop.rotation.z = -2.2 - state.throttle * 3;
     }
-    sun.position.set(state.pos.x + 900, 1500, state.pos.z - 650);
+    // The light rides at the palette's sun direction (HW.SUN_DIR) —
+    // the same vector the sky shader draws its disc at and the water
+    // takes its glitter from — lower than v2.2's, for longer shadows.
+    sun.position.set(
+      state.pos.x + HW.SUN_DIR.x * 1900,
+      HW.SUN_DIR.y * 1900,
+      state.pos.z + HW.SUN_DIR.z * 1900
+    );
     sun.target.position.copy(state.pos);
+    // Ground the aircraft: the blob sits on the surface below, tight
+    // and dark on the ground, swelling and fading with height, gone
+    // entirely above 170 m where the real shadow map takes over.
+    const gy = HW.groundAt(state.pos.x, state.pos.z);
+    const hgt = state.pos.y - gy;
+    shadowBlob.visible = hgt < 170;
+    if (shadowBlob.visible) {
+      shadowBlob.position.set(state.pos.x, gy + 0.45, state.pos.z);
+      shadowBlob.rotation.y = -state.heading * Math.PI / 180;
+      const grow = 1 + hgt * 0.011;
+      shadowBlob.scale.set(grow, grow, 1);
+      shadowBlob.material.opacity = 0.85 * HW.clamp(1 - hgt / 170, 0, 1) + 0.15;
+    }
   }
 
   function animate() {

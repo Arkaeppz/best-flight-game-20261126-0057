@@ -17,7 +17,7 @@ HW.FLIGHT = {
       heading: 0, pitch: 0, bank: 0,
       speed: 0, vy: 0, throttle: 0,
       fuel: 100, hull: 100,
-      stalled: false, engineOut: false,
+      stalled: false, engineOut: false, inWeather: false,
       onGround: true, crashed: false, splashed: false,
       shake: 0, time: 0,
       touchdownId: 0, lastTouchdown: null,
@@ -83,6 +83,21 @@ HW.FLIGHT = {
       state.shake = Math.max(state.shake, 0.22 * (1 - dv / 430));
     }
     state.vy = vy;
+
+    // --- the weather cell: gusty air over the bay ---
+    // Inside HW.WEATHER's cylinder the wind shoves the airframe around
+    // on a slow deterministic swell (a pure function of sim time, so a
+    // replayed sortie feels the same gusts) and the airframe buffets.
+    // The hoist works below the cell, so rescue flying stays fair.
+    const W = HW.WEATHER;
+    const dw = Math.hypot(state.pos.x - W.x, state.pos.z - W.z);
+    state.inWeather = !state.onGround && dw < W.r && state.pos.y > W.y0 && state.pos.y < W.y1;
+    if (state.inWeather) {
+      const gust = Math.sin(state.time * 0.9) * 0.6 + Math.sin(state.time * 2.3) * 0.4;
+      state.pos.x += gust * 2.6 * dt;
+      state.pos.z += Math.cos(state.time * 1.7) * 1.9 * dt;
+      state.shake = Math.max(state.shake, 0.28);
+    }
 
     // --- integrate along the flight path, plus a light westerly drift ---
     const hRad = state.heading * Math.PI / 180;

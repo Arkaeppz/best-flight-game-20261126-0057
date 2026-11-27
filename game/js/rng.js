@@ -41,3 +41,36 @@ HW.fbm = function (x, z, octaves) {
 
 HW.clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 HW.lerp = (a, b, t) => a + (b - a) * t;
+
+// A soft round sprite drawn once on a canvas: particle systems (smoke,
+// ring bursts, nav-light glow) use this as their map so points read as
+// puffs and glows instead of hard squares. Deterministic — no assets.
+HW.dotTexture = function () {
+  if (HW._dotTexture) return HW._dotTexture;
+  const c = document.createElement('canvas');
+  c.width = 64; c.height = 64;
+  const ctx = c.getContext('2d');
+  const g = ctx.createRadialGradient(32, 32, 2, 32, 32, 30);
+  g.addColorStop(0, 'rgba(255,255,255,1)');
+  g.addColorStop(0.55, 'rgba(255,255,255,0.55)');
+  g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 64, 64);
+  HW._dotTexture = new THREE.CanvasTexture(c);
+  return HW._dotTexture;
+};
+
+// A small text plate (fuselage registration, placards): dark text on a
+// transparent canvas, mapped onto a thin plane on the airframe.
+HW.labelTexture = function (text, fg, font) {
+  const c = document.createElement('canvas');
+  c.width = 256; c.height = 64;
+  const ctx = c.getContext('2d');
+  ctx.clearRect(0, 0, 256, 64);
+  ctx.fillStyle = fg || '#14607e';
+  ctx.font = font || '900 44px Verdana, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, 128, 34);
+  return new THREE.CanvasTexture(c);
+};

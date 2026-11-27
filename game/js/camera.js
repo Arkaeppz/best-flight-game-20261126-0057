@@ -46,11 +46,19 @@ HW.CameraRig = {
     if (this.mode === 'cockpit') {
       // Seated high over the nose, ahead of the wing's leading edge, with
       // the dash low in frame and the cowl below — an open seaplane cockpit.
-      const local = new THREE.Vector3(shX * 0.2, 1.78 + shY * 0.2, -2.25);
+      // The eye sits low enough that the tilted panel face reads: from a
+      // higher eye the dash hides its own instruments behind its top edge.
+      const local = new THREE.Vector3(shX * 0.2, 1.38 + shY * 0.2, -2.25);
       const world = local.clone();
       plane.localToWorld(world);
       camera.position.copy(world);
-      const ahead = new THREE.Vector3(0, 0.7, -30);
+      // v2.1: gaze pitched a touch lower (was -2.2) so the dash rides
+      // higher in frame, clear of the DOM gauge cluster, and the horizon
+      // — and the empty sky above it — shrinks in the rescue frame.
+      // Verified in the v2.1 cockpit shot: the full six-pack, both MFDs
+      // and the radio strip read past the small yoke, and the boat sits
+      // above the dash with the sea between them.
+      const ahead = new THREE.Vector3(0, -3.2, -30);
       plane.localToWorld(ahead);
       camera.lookAt(ahead.x, ahead.y + shY, ahead.z);
       this.setFov(camera, 66);
