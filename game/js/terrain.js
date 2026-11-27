@@ -843,13 +843,55 @@ HW.buildWorld = function (scene) {
       b.position.set(x, y + h / 2 - 0.4, z);
       b.castShadow = true; b.receiveShadow = true;
       grp.add(b);
-      const roof = new THREE.Mesh(
-        new THREE.BoxGeometry(w + 1.6, 1.4, d + 1.6),
-        new THREE.MeshStandardMaterial({ color: roofPalette[Math.floor(rng() * roofPalette.length)], roughness: 1 })
-      );
-      roof.position.set(x, y + h + 0.3, z);
-      roof.castShadow = true;
-      grp.add(roof);
+      // v2.4: roof variety — half the town gets a real gable (two
+      // slanted slabs meeting at a ridge) instead of the flat slab, so
+      // the skyline stops reading as one repeated box-with-lid.
+      const roofMat = new THREE.MeshStandardMaterial({ color: roofPalette[Math.floor(rng() * roofPalette.length)], roughness: 1 });
+      let ridgeY = y + h + 0.3;
+      if (rng() < 0.5) {
+        const alongX = w >= d;
+        const span = (alongX ? w : d) / 2 + 0.8;
+        const rise = Math.min(w, d) * 0.34;
+        const slabLen = Math.hypot(span, rise);
+        const ang = Math.atan2(rise, span);
+        for (const s of [-1, 1]) {
+          const slab = new THREE.Mesh(
+            new THREE.BoxGeometry(alongX ? w + 1.6 : slabLen, 0.5, alongX ? slabLen : d + 1.6),
+            roofMat
+          );
+          if (alongX) {
+            slab.rotation.x = s * ang;
+            slab.position.set(x, y + h + rise / 2 + 0.1, z + s * (span / 2) * Math.cos(ang));
+          } else {
+            slab.rotation.z = -s * ang;
+            slab.position.set(x + s * (span / 2) * Math.cos(ang), y + h + rise / 2 + 0.1, z);
+          }
+          slab.castShadow = true;
+          grp.add(slab);
+        }
+        ridgeY = y + h + rise + 0.2;
+      } else {
+        const roof = new THREE.Mesh(new THREE.BoxGeometry(w + 1.6, 1.4, d + 1.6), roofMat);
+        roof.position.set(x, y + h + 0.3, z);
+        roof.castShadow = true;
+        grp.add(roof);
+      }
+      // Chimneys on half the houses: a brick stub at the ridge.
+      if (rng() < 0.5) {
+        const chim = new THREE.Mesh(new THREE.BoxGeometry(1.5, 2.8, 1.5), new THREE.MeshStandardMaterial({ color: 0x9a5a48, roughness: 1 }));
+        chim.position.set(x + w * 0.26, ridgeY + 0.7, z + d * 0.08);
+        chim.castShadow = true;
+        grp.add(chim);
+      }
+      // The warehouses (the wide calls) get a striped awning over the
+      // door face — the harbour row reads as working buildings.
+      if (w > 25.5) {
+        const awn = new THREE.Mesh(new THREE.BoxGeometry(w * 0.7, 0.25, 3.6), new THREE.MeshStandardMaterial({ color: 0xb03a26, roughness: 0.9 }));
+        awn.rotation.x = 0.5;
+        awn.position.set(x, y + 3.4, z + d / 2 + 1.4);
+        awn.castShadow = true;
+        grp.add(awn);
+      }
     };
     for (let gx = 62; gx <= 238; gx += 37) {
       for (let gz = 792; gz <= 1270; gz += 44) {
@@ -880,11 +922,10 @@ HW.buildWorld = function (scene) {
     const pier = new THREE.Mesh(new THREE.BoxGeometry(150, 1.6, 14), wood);
     pier.position.set(590, 2.2, 1080);
     grp.add(pier);
-    const hullMat = new THREE.MeshStandardMaterial({ color: 0xc7502e, roughness: 0.7 });
     const cabinMat = new THREE.MeshStandardMaterial({ color: 0xf0ead8, roughness: 0.8 });
-    const mkBoat = (x, z, ry, s) => {
+    const mkBoat = (x, z, ry, s, hullColor = 0xc7502e) => {
       const boat = new THREE.Group();
-      const hull = new THREE.Mesh(new THREE.BoxGeometry(7 * s, 2.6 * s, 20 * s), hullMat);
+      const hull = new THREE.Mesh(new THREE.BoxGeometry(7 * s, 2.6 * s, 20 * s), new THREE.MeshStandardMaterial({ color: hullColor, roughness: 0.7 }));
       hull.position.y = 0.8;
       boat.add(hull);
       const cabin = new THREE.Mesh(new THREE.BoxGeometry(5 * s, 3 * s, 6 * s), cabinMat);
@@ -901,6 +942,40 @@ HW.buildWorld = function (scene) {
     mkBoat(610, 1052, 0.2, 1);
     mkBoat(648, 1106, -0.3, 0.85);
     mkBoat(700, 1010, 0.9, 1.15);
+    // v2.4: the pier dressed as a working harbour — posts dropping to
+    // the water along both edges, crates and barrels on the deck, two
+    // more moored boats in different liveries, and a row of old jetty
+    // pilings standing in the shallows south of it.
+    const postGeo = new THREE.CylinderGeometry(0.32, 0.38, 4.6, 6);
+    for (let px = 522; px <= 660; px += 17) {
+      for (const pz of [1074.5, 1085.5]) {
+        const post = new THREE.Mesh(postGeo, wood);
+        post.position.set(px, 0.6, pz);
+        grp.add(post);
+      }
+    }
+    const crateMatP = new THREE.MeshStandardMaterial({ color: 0x8a6a45, roughness: 1 });
+    [[556, 1077, 2.6], [559.5, 1077, 2.2], [557.5, 1077.5, 2.0], [628, 1083, 2.8], [652, 1076, 2.4]].forEach(([x, z, s], i) => {
+      const crate = new THREE.Mesh(new THREE.BoxGeometry(s, s * 0.8, s), crateMatP);
+      crate.position.set(x, 3.0 + (i === 2 ? 1.7 : 0) + s * 0.4, z);
+      crate.castShadow = true;
+      grp.add(crate);
+    });
+    const drumMatP = new THREE.MeshStandardMaterial({ color: 0x39586e, roughness: 0.6, metalness: 0.25 });
+    for (let i = 0; i < 3; i++) {
+      const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 0.95, 2.3, 10), drumMatP);
+      drum.position.set(600 + i * 2.7, 4.15, 1083.5);
+      drum.castShadow = true;
+      grp.add(drum);
+    }
+    mkBoat(566, 1118, 0.55, 0.8, 0x39586e);
+    mkBoat(726, 1072, -0.9, 0.95, 0x8fae4c);
+    for (let i = 0; i < 6; i++) {
+      const pile = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.34, 3.4, 6), wood);
+      pile.position.set(512 + i * 13, 0.9, 1152 + (i % 2) * 7);
+      pile.rotation.z = (i % 3 - 1) * 0.06;
+      grp.add(pile);
+    }
     scene.add(grp);
   }
 
@@ -1014,6 +1089,47 @@ HW.buildWorld = function (scene) {
       foam.position.set(bx, 0.3, bz);
       boat.add(foam);
     }
+    // v2.4: two crew on deck in orange life vests — the people the
+    // rescue mission is ABOUT, visible from the cockpit at hoist
+    // range. One waves at the aircraft. Built as children of the boat
+    // so they inherit her list and heel.
+    const mkSailor = (waving) => {
+      const fig = new THREE.Group();
+      const legs = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.72, 0.32), new THREE.MeshStandardMaterial({ color: 0x2c3440, roughness: 0.9 }));
+      legs.position.y = 0.36;
+      fig.add(legs);
+      const vest = new THREE.Mesh(new THREE.BoxGeometry(0.64, 0.78, 0.38), new THREE.MeshStandardMaterial({ color: 0xe8762c, roughness: 0.7 }));
+      vest.position.y = 1.1;
+      fig.add(vest);
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.21, 8, 6), new THREE.MeshStandardMaterial({ color: 0xd9a066, roughness: 0.8 }));
+      head.position.y = 1.72;
+      fig.add(head);
+      const armGeo = new THREE.BoxGeometry(0.16, 0.72, 0.16);
+      const armMat = new THREE.MeshStandardMaterial({ color: 0xe8762c, roughness: 0.7 });
+      const armL = new THREE.Mesh(armGeo, armMat);
+      armL.position.set(-0.42, 1.08, 0);
+      armL.rotation.z = 0.25;
+      fig.add(armL);
+      const armR = new THREE.Mesh(armGeo, armMat);
+      if (waving) {
+        armR.position.set(0.5, 1.78, 0);
+        armR.rotation.z = -2.5; // raised and waving at the seaplane
+      } else {
+        armR.position.set(0.42, 1.08, 0);
+        armR.rotation.z = -0.25;
+      }
+      fig.add(armR);
+      fig.traverse((o) => { o.castShadow = true; });
+      return fig;
+    };
+    const sailor1 = mkSailor(true);
+    sailor1.position.set(1.9, 2.32, 3.4);   // foredeck, by the crates
+    sailor1.rotation.y = -0.7;              // facing the approaching aircraft
+    boat.add(sailor1);
+    const sailor2 = mkSailor(false);
+    sailor2.position.set(-2.5, 2.32, -7.6); // stern deck, by the cabin
+    sailor2.rotation.y = -0.5;
+    boat.add(sailor2);
     boat.position.set(G.boat.x, 0.3, G.boat.z);
     // Yaw -0.785 puts her broad side to the north-west — the direction
     // the rescue aircraft approaches from, and the cockpit camera's side —
@@ -1039,6 +1155,44 @@ HW.buildWorld = function (scene) {
     wakeTrail.renderOrder = 1;
     wakeGrp.add(wakeTrail);
     scene.add(wakeGrp);
+
+    // v2.4: a debris field around the wreck — planks, barrels and a
+    // crate drifting in a ring, each with its own foam fleck, so the
+    // cockpit frame's water tells the story (she struck something and
+    // is going down) instead of lying empty around the hull.
+    {
+      const drng = HW.makeRng(90210);
+      const debris = new THREE.Group();
+      const plankMat = new THREE.MeshStandardMaterial({ color: 0x7a5c40, roughness: 1 });
+      const barrelMat = new THREE.MeshStandardMaterial({ color: 0xb03a26, roughness: 0.6, metalness: 0.2 });
+      const foamMatD = new THREE.MeshBasicMaterial({ color: 0xf5f2e6, transparent: true, opacity: 0.45, depthWrite: false });
+      for (let i = 0; i < 10; i++) {
+        const a = drng() * Math.PI * 2, rad = 15 + drng() * 17;
+        const x = G.boat.x + Math.cos(a) * rad, z = G.boat.z + Math.sin(a) * rad;
+        let item;
+        if (i % 3 === 0) {
+          item = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.55, 1.35, 9), barrelMat);
+          item.rotation.z = Math.PI / 2;
+          item.rotation.y = drng() * Math.PI;
+          item.position.set(x, 0.05, z);
+        } else if (i % 3 === 1) {
+          item = new THREE.Mesh(new THREE.BoxGeometry(3.1, 0.18, 0.72), plankMat);
+          item.rotation.y = drng() * Math.PI;
+          item.rotation.z = (drng() - 0.5) * 0.14;
+          item.position.set(x, 0.12, z);
+        } else {
+          item = new THREE.Mesh(new THREE.BoxGeometry(1.35, 1.1, 1.35), plankMat);
+          item.rotation.y = drng() * Math.PI;
+          item.position.set(x, 0.1, z);
+        }
+        debris.add(item);
+        const fleck = new THREE.Mesh(new THREE.SphereGeometry(1.5 + drng() * 1.1, 8, 6), foamMatD);
+        fleck.scale.set(1, 0.3, 1);
+        fleck.position.set(x, 0.16, z);
+        debris.add(fleck);
+      }
+      scene.add(debris);
+    }
 
     // Smoke, v2.2: eighteen layered sprites with a blotchy puff
     // texture instead of one Points cloud of round dots — the dot
@@ -1089,6 +1243,51 @@ HW.buildWorld = function (scene) {
     const lamp = new THREE.Mesh(new THREE.SphereGeometry(2.1, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffe9a3 }));
     lamp.position.set(G.lighthouse.x, cy + 2.2, G.lighthouse.z);
     grp.add(lamp);
+    // v2.4: a real lamp room around the light — gallery deck with a
+    // railing ring, dark glazing under the lamp, a red cap above, a
+    // door and windows on the tower — the Gull Rock landmark stops
+    // being a striped pole with a ball on top.
+    const ironMat = new THREE.MeshStandardMaterial({ color: 0x2b3136, roughness: 0.6, metalness: 0.4 });
+    const gallery = new THREE.Mesh(new THREE.CylinderGeometry(4.5, 4.5, 0.35, 14), ironMat);
+    gallery.position.set(G.lighthouse.x, cy + 0.2, G.lighthouse.z);
+    grp.add(gallery);
+    const rail = new THREE.Mesh(new THREE.TorusGeometry(4.35, 0.14, 6, 22), ironMat);
+    rail.rotation.x = Math.PI / 2;
+    rail.position.set(G.lighthouse.x, cy + 1.25, G.lighthouse.z);
+    grp.add(rail);
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      const baluster = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 1.05, 5), ironMat);
+      baluster.position.set(G.lighthouse.x + Math.cos(a) * 4.35, cy + 0.75, G.lighthouse.z + Math.sin(a) * 4.35);
+      grp.add(baluster);
+    }
+    // The lamp room is a frame, not a solid drum — mullions and rings
+    // around the glowing lamp, so the light itself stays visible.
+    for (const ry of [cy + 0.45, cy + 2.8]) {
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(2.35, 0.13, 6, 18), ironMat);
+      ring.rotation.x = Math.PI / 2;
+      ring.position.set(G.lighthouse.x, ry, G.lighthouse.z);
+      grp.add(ring);
+    }
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      const mullion = new THREE.Mesh(new THREE.BoxGeometry(0.18, 2.4, 0.18), ironMat);
+      mullion.position.set(G.lighthouse.x + Math.cos(a) * 2.35, cy + 1.6, G.lighthouse.z + Math.sin(a) * 2.35);
+      grp.add(mullion);
+    }
+    const capRoof = new THREE.Mesh(new THREE.ConeGeometry(3.3, 2.1, 10), red);
+    capRoof.position.set(G.lighthouse.x, cy + 3.9, G.lighthouse.z);
+    capRoof.castShadow = true;
+    grp.add(capRoof);
+    const door = new THREE.Mesh(new THREE.BoxGeometry(1.7, 3.1, 0.25), ironMat);
+    door.position.set(G.lighthouse.x, y + 1.55, G.lighthouse.z + 3.82);
+    grp.add(door);
+    const winMat = new THREE.MeshStandardMaterial({ color: 0x1c2f3a, roughness: 0.4 });
+    for (const wy of [y + 12.5, y + 19.5]) {
+      const win = new THREE.Mesh(new THREE.BoxGeometry(0.95, 1.3, 0.2), winMat);
+      win.position.set(G.lighthouse.x, wy, G.lighthouse.z + 3.62);
+      grp.add(win);
+    }
     scene.add(grp);
   }
 
@@ -1398,6 +1597,21 @@ HW.buildWorld = function (scene) {
     roof.position.set(478, y + 7.8, 1440);
     roof.rotation.y = Math.PI / 4;
     cottage.add(roof);
+    // v2.4: chimney, a door and a picket fence run — the keeper's
+    // cottage reads as lived-in, not a toy house.
+    const chim = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2.6, 1.2), new THREE.MeshStandardMaterial({ color: 0x9a5a48, roughness: 1 }));
+    chim.position.set(481.5, y + 8.9, 1437.5);
+    chim.castShadow = true;
+    cottage.add(chim);
+    const cdoor = new THREE.Mesh(new THREE.BoxGeometry(1.5, 2.8, 0.2), new THREE.MeshStandardMaterial({ color: 0x4a3a2c, roughness: 1 }));
+    cdoor.position.set(476, y + 1.4, 1445.05);
+    cottage.add(cdoor);
+    const picketMat = new THREE.MeshStandardMaterial({ color: 0xf0ead8, roughness: 1 });
+    for (let i = 0; i < 9; i++) {
+      const picket = new THREE.Mesh(new THREE.BoxGeometry(0.28, 1.15, 0.08), picketMat);
+      picket.position.set(466 + i * 1.15, HW.heightAt(466 + i * 1.15, 1452) + 0.55, 1452);
+      cottage.add(picket);
+    }
     scene.add(cottage);
   }
 
@@ -1745,6 +1959,335 @@ HW.buildWorld = function (scene) {
       cone.castShadow = true;
       grp.add(cone);
     }
+    scene.add(grp);
+  }
+
+  // v2.4 DENSITY PASS — the two gaps the v2.3 head-to-head conceded:
+  // bespoke geometry per frame, and an illustrated mid-field. Every
+  // addition below is placed where one of the four staged cameras
+  // actually looks, and built from seeded RNGs like the rest of the
+  // world, so the shots stay byte-identical.
+  {
+    const rng = HW.makeRng(602210);
+    const grp = new THREE.Group();
+
+    // Channel buoys: a marked fairway from the harbour mouth past the
+    // rescue boat toward Gull Rock — red-orange cans with topmarks
+    // and foam collars. Two of them sit on the cockpit shot's axis.
+    const buoyMat = new THREE.MeshStandardMaterial({ color: 0xd84f26, roughness: 0.6 });
+    const buoyDark = new THREE.MeshStandardMaterial({ color: 0x2b3136, roughness: 0.6, metalness: 0.3 });
+    const mkBuoy = (x, z) => {
+      const buoy = new THREE.Group();
+      const can = new THREE.Mesh(new THREE.CylinderGeometry(1.05, 1.25, 1.5, 9), buoyMat);
+      can.position.y = 0.45;
+      buoy.add(can);
+      const mastB = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 2.3, 5), buoyDark);
+      mastB.position.y = 2.2;
+      buoy.add(mastB);
+      const topmark = new THREE.Mesh(new THREE.ConeGeometry(0.55, 1.1, 7), buoyMat);
+      topmark.position.y = 3.1;
+      buoy.add(topmark);
+      const collar = new THREE.Mesh(
+        new THREE.RingGeometry(1.7, 2.7, 18),
+        new THREE.MeshBasicMaterial({ color: 0xf5f2e6, transparent: true, opacity: 0.4, depthWrite: false })
+      );
+      collar.rotation.x = -Math.PI / 2;
+      collar.position.y = 0.14;
+      buoy.add(collar);
+      buoy.position.set(x, 0, z);
+      buoy.rotation.y = rng() * Math.PI;
+      grp.add(buoy);
+    };
+    mkBuoy(700, 1160); mkBuoy(845, 1305); mkBuoy(1015, 1335); mkBuoy(1130, 1450); mkBuoy(760, 1420);
+
+    // A hangar east of the strip: gabled, with a tall dark door on
+    // the runway face — the landing frame's right side gains a
+    // building with a job, not another warehouse box.
+    {
+      const hx = 408, hz = 1180, hy = HW.heightAt(hx, hz);
+      const hangar = new THREE.Group();
+      const walls = new THREE.Mesh(new THREE.BoxGeometry(30, 11, 22), new THREE.MeshStandardMaterial({ color: 0x97907e, roughness: 0.85, metalness: 0.15 }));
+      walls.position.y = 5.5;
+      walls.castShadow = true; walls.receiveShadow = true;
+      hangar.add(walls);
+      const hRoofMat = new THREE.MeshStandardMaterial({ color: 0x74584a, roughness: 1 });
+      for (const s of [-1, 1]) {
+        const slab = new THREE.Mesh(new THREE.BoxGeometry(32, 0.5, 8.6), hRoofMat);
+        slab.rotation.x = s * 0.62;
+        slab.position.set(0, 13.1, s * 3.4);
+        slab.castShadow = true;
+        hangar.add(slab);
+      }
+      const hDoor = new THREE.Mesh(new THREE.BoxGeometry(0.3, 9.2, 15), new THREE.MeshStandardMaterial({ color: 0x232a30, roughness: 0.7 }));
+      hDoor.position.set(-15.1, 4.6, 0);
+      hangar.add(hDoor);
+      const hTrim = new THREE.Mesh(new THREE.BoxGeometry(0.34, 9.8, 16.2), new THREE.MeshStandardMaterial({ color: 0xf0ead8, roughness: 0.8 }));
+      hTrim.position.set(-15.02, 4.9, 0);
+      hangar.add(hTrim);
+      hangar.position.set(hx, hy - 0.3, hz);
+      hangar.rotation.y = 0.04;
+      grp.add(hangar);
+    }
+
+    // Touchdown-zone marker pairs on the deck, past the threshold.
+    {
+      const tdMat = new THREE.MeshBasicMaterial({ color: 0xf5f2e6 });
+      for (const tz of [772, 832, 892]) {
+        for (const sx of [-1, 1]) {
+          const bar = new THREE.Mesh(new THREE.BoxGeometry(6.5, 0.16, 1.9), tdMat);
+          bar.position.set(G.runway.x + sx * 9.5, G.runway.alt + 0.09, tz);
+          grp.add(bar);
+        }
+      }
+    }
+
+    // A second seaplane parked on the debrief apron — same airframe
+    // (it is a fleet, after all), engine cold, waiting its turn. It
+    // fills the apron's empty east slab in the debrief frame and sits
+    // in the landing frame's right mid-ground.
+    {
+      const slabTop = HW.heightAt(352, 1010) + 0.45;
+      const parked = HW.buildAircraft();
+      parked.position.set(357, slabTop + 2.9, 1013);
+      parked.rotation.y = 0.42;
+      grp.add(parked);
+    }
+
+    // Rio Verde farmstead: a working farm where the valley road bends
+    // — red barn with a gable, farmhouse, silo, a fenced yard and hay
+    // bales on a dirt apron draped to the ground. It is the cover
+    // frame's missing mid-field settlement, west of the hamlet.
+    {
+      const farm = new THREE.Group();
+      const fx = -395, fz = 285;
+      // Draped dirt apron under the yard.
+      const apronGeo = new THREE.PlaneGeometry(64, 48, 8, 8);
+      apronGeo.rotateX(-Math.PI / 2);
+      const ap = apronGeo.attributes.position;
+      const hc = HW.heightAt(fx, fz);
+      for (let vi = 0; vi < ap.count; vi++) {
+        ap.setY(vi, HW.heightAt(fx + ap.getX(vi), fz + ap.getZ(vi)) - hc + 0.32);
+      }
+      apronGeo.computeVertexNormals();
+      const apron = new THREE.Mesh(apronGeo, new THREE.MeshStandardMaterial({ color: 0xbfab84, roughness: 1 }));
+      apron.position.set(fx, hc, fz);
+      apron.receiveShadow = true;
+      farm.add(apron);
+      const gableRoof = (parent, w, d, yTop, color) => {
+        const mat = new THREE.MeshStandardMaterial({ color, roughness: 1 });
+        const span = d / 2 + 0.7, rise = Math.min(w, d) * 0.36;
+        const slabLen = Math.hypot(span, rise), ang = Math.atan2(rise, span);
+        for (const s of [-1, 1]) {
+          const slab = new THREE.Mesh(new THREE.BoxGeometry(w + 1.4, 0.45, slabLen), mat);
+          slab.rotation.x = s * ang;
+          slab.position.set(0, yTop + rise / 2, s * (span / 2) * Math.cos(ang));
+          slab.castShadow = true;
+          parent.add(slab);
+        }
+      };
+      // Barn.
+      const barn = new THREE.Group();
+      const barnBody = new THREE.Mesh(new THREE.BoxGeometry(17, 8.5, 11.5), new THREE.MeshStandardMaterial({ color: 0x9c3a28, roughness: 0.95 }));
+      barnBody.position.y = 4.25;
+      barnBody.castShadow = true; barnBody.receiveShadow = true;
+      barn.add(barnBody);
+      gableRoof(barn, 17, 11.5, 8.5, 0x6e4a3a);
+      const barnDoor = new THREE.Mesh(new THREE.BoxGeometry(5.4, 6.2, 0.25), new THREE.MeshStandardMaterial({ color: 0xf0ead8, roughness: 0.9 }));
+      barnDoor.position.set(0, 3.1, 5.85);
+      barn.add(barnDoor);
+      const by = HW.heightAt(fx - 14, fz + 4);
+      barn.position.set(fx - 14, by - 0.3, fz + 4);
+      barn.rotation.y = 0.22;
+      farm.add(barn);
+      // Farmhouse.
+      const house = new THREE.Group();
+      const houseBody = new THREE.Mesh(new THREE.BoxGeometry(10.5, 6, 9), new THREE.MeshStandardMaterial({ map: HW.buildingTexture(), color: 0xe8dcc0, roughness: 0.9 }));
+      houseBody.position.y = 3;
+      houseBody.castShadow = true;
+      house.add(houseBody);
+      gableRoof(house, 10.5, 9, 6, 0x8a4f35);
+      const hy2 = HW.heightAt(fx + 16, fz - 8);
+      house.position.set(fx + 16, hy2 - 0.3, fz - 8);
+      house.rotation.y = -0.3;
+      farm.add(house);
+      // Silo with a domed cap, beside the barn.
+      const silo = new THREE.Group();
+      const siloBody = new THREE.Mesh(new THREE.CylinderGeometry(2.7, 2.7, 11.5, 12), new THREE.MeshStandardMaterial({ color: 0xb9bcbe, roughness: 0.5, metalness: 0.45 }));
+      siloBody.position.y = 5.75;
+      siloBody.castShadow = true;
+      silo.add(siloBody);
+      const siloCap = new THREE.Mesh(new THREE.SphereGeometry(2.7, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x8a8578, roughness: 0.6, metalness: 0.3 }));
+      siloCap.position.y = 11.5;
+      silo.add(siloCap);
+      const sy = HW.heightAt(fx - 26, fz - 8);
+      silo.position.set(fx - 26, sy - 0.2, fz - 8);
+      farm.add(silo);
+      // Fence rectangle around the yard: posts + two rails per side.
+      const fenceMat = new THREE.MeshStandardMaterial({ color: 0x6e6250, roughness: 1 });
+      const fx0 = fx - 34, fx1 = fx + 32, fz0 = fz - 26, fz1 = fz + 26;
+      const postGeoF = new THREE.BoxGeometry(0.32, 1.5, 0.32);
+      const fencePosts = [];
+      for (let x = fx0; x <= fx1; x += 5.5) { fencePosts.push([x, fz0], [x, fz1]); }
+      for (let z = fz0 + 5.5; z < fz1; z += 5.5) { fencePosts.push([fx0, z], [fx1, z]); }
+      const postsMesh = new THREE.InstancedMesh(postGeoF, fenceMat, fencePosts.length);
+      {
+        const m4 = new THREE.Matrix4();
+        fencePosts.forEach(([x, z], i) => {
+          m4.makeTranslation(x, HW.heightAt(x, z) + 0.75, z);
+          postsMesh.setMatrixAt(i, m4);
+        });
+      }
+      farm.add(postsMesh);
+      for (const side of [[fx0, fz0, fx1, fz0], [fx0, fz1, fx1, fz1], [fx0, fz0, fx0, fz1], [fx1, fz0, fx1, fz1]]) {
+        const [ax, az, bx, bz] = side;
+        const len = Math.hypot(bx - ax, bz - az);
+        for (const ry of [0.55, 1.1]) {
+          const rail = new THREE.Mesh(new THREE.BoxGeometry(len, 0.14, 0.14), fenceMat);
+          rail.position.set((ax + bx) / 2, HW.heightAt((ax + bx) / 2, (az + bz) / 2) + ry, (az + bz) / 2);
+          rail.rotation.y = -Math.atan2(bz - az, bx - ax);
+          farm.add(rail);
+        }
+      }
+      // Hay bales in the yard's south corner.
+      const baleMat = new THREE.MeshStandardMaterial({ color: 0xd9b13a, roughness: 1 });
+      for (let i = 0; i < 5; i++) {
+        const bx = fx - 24 + rng() * 16, bz = fz + 15 + rng() * 8;
+        const bale = new THREE.Mesh(new THREE.CylinderGeometry(1.15, 1.15, 1.5, 10), baleMat);
+        bale.rotation.z = Math.PI / 2;
+        bale.rotation.y = rng() * Math.PI;
+        bale.position.set(bx, HW.heightAt(bx, bz) + 1.1, bz);
+        bale.castShadow = true;
+        farm.add(bale);
+      }
+      grp.add(farm);
+    }
+
+    // The valley road runs on north-west, past the farmstead toward
+    // the volcano's shoulder — same draped-ribbon construction as the
+    // existing road, so the cover's leading line no longer dead-ends
+    // in empty grass.
+    {
+      const extRaw = [[-480, 150], [-660, 20], [-810, -80]];
+      const extPts = [];
+      for (let i = 0; i < extRaw.length - 1; i++) {
+        const [ax, az] = extRaw[i], [bx, bz] = extRaw[i + 1];
+        const segLen = Math.hypot(bx - ax, bz - az);
+        const steps = Math.max(1, Math.round(segLen / 22));
+        for (let sIdx = 0; sIdx < steps; sIdx++) extPts.push([ax + (bx - ax) * (sIdx / steps), az + (bz - az) * (sIdx / steps)]);
+      }
+      extPts.push(extRaw[extRaw.length - 1]);
+      const verts = [], idx = [];
+      extPts.forEach(([x, z], i) => {
+        const [px, pz] = extPts[Math.max(0, i - 1)];
+        const [nx, nz] = extPts[Math.min(extPts.length - 1, i + 1)];
+        let dx = nx - px, dz = nz - pz;
+        const len = Math.hypot(dx, dz) || 1;
+        dx /= len; dz /= len;
+        const ox = -dz * 5.2, oz = dx * 5.2;
+        verts.push(x - ox, HW.heightAt(x - ox, z - oz) + 0.35, z - oz, x + ox, HW.heightAt(x + ox, z + oz) + 0.35, z + oz);
+        if (i > 0) { const a = (i - 1) * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+      });
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(verts), 3));
+      geo.setIndex(idx);
+      geo.computeVertexNormals();
+      const ext = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0x9a7c52, roughness: 1 }));
+      ext.receiveShadow = true;
+      grp.add(ext);
+    }
+
+    // Hedgerows along the whole valley road: instanced shrubs in a
+    // broken line on both verges — the road gains an edge, and the
+    // mid-field gains the tree lines the leaders' patchwork has.
+    {
+      const line = [[255, 815], [150, 700], [60, 620], [-95, 545], [-215, 445], [-330, 320], [-480, 150], [-660, 20], [-810, -80]];
+      const spots = [];
+      for (let i = 0; i < line.length - 1; i++) {
+        const [ax, az] = line[i], [bx, bz] = line[i + 1];
+        const segLen = Math.hypot(bx - ax, bz - az);
+        const steps = Math.floor(segLen / 26);
+        for (let sIdx = 0; sIdx < steps; sIdx++) {
+          const t = (sIdx + 0.5) / steps;
+          const side = (sIdx + i) % 2 === 0 ? 1 : -1;
+          const off = (8.2 + rng() * 2.6) * side;
+          const dx = (bx - ax) / segLen, dz = (bz - az) / segLen;
+          const x = ax + (bx - ax) * t - dz * off, z = az + (bz - az) * t + dx * off;
+          if (HW.riverDist(x, z) < 55) continue;
+          const h = HW.heightAt(x, z);
+          if (h < 3.5 || h > 130) continue;
+          if (x > 20 && x < 270 && z > 740 && z < 1330) continue; // town
+          spots.push([x, h, z]);
+        }
+      }
+      const hedgeGeo = new THREE.IcosahedronGeometry(2.1, 0);
+      const hedgeMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, flatShading: true });
+      const hedges = new THREE.InstancedMesh(hedgeGeo, hedgeMat, spots.length);
+      const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), pv = new THREE.Vector3();
+      const hedgeGreens = [new THREE.Color(0x2f6633), new THREE.Color(0x406f2e), new THREE.Color(0x55702f)];
+      spots.forEach(([x, h, z], i) => {
+        const s = 0.8 + rng() * 0.9;
+        sc.set(s * 1.25, s * 0.6, s);
+        q.setFromAxisAngle(pv.set(0, 1, 0), rng() * Math.PI);
+        m4.compose(new THREE.Vector3(x, h + 0.6 * s, z), q, sc);
+        hedges.setMatrixAt(i, m4);
+        hedges.setColorAt(i, hedgeGreens[Math.floor(rng() * hedgeGreens.length)]);
+      });
+      hedges.castShadow = true;
+      grp.add(hedges);
+    }
+
+    // More draped patchwork in the cover's mid-field band, each plot
+    // with its crop rows running a different way — cloned textures
+    // with rotated UVs, so neighbouring fields stop sharing one
+    // row direction.
+    {
+      const rowAngles = [0, Math.PI / 2, Math.PI / 4, -Math.PI / 4];
+      const addDraped24 = (fx, fz, w, d, tone) => {
+        if (HW.riverDist(fx, fz) < 78) return;
+        const tex = HW.fieldTexture().clone();
+        tex.needsUpdate = true;
+        tex.center.set(0.5, 0.5);
+        tex.rotation = rowAngles[Math.floor(rng() * rowAngles.length)];
+        const geo = new THREE.PlaneGeometry(w, d, 10, 10);
+        geo.rotateX(-Math.PI / 2);
+        const rot = (rng() - 0.5) * 0.3;
+        const cosR = Math.cos(rot), sinR = Math.sin(rot);
+        const posA = geo.attributes.position;
+        const hc = HW.heightAt(fx, fz);
+        for (let vi = 0; vi < posA.count; vi++) {
+          const lx = posA.getX(vi), lz = posA.getZ(vi);
+          const rx = lx * cosR - lz * sinR, rz = lx * sinR + lz * cosR;
+          posA.setX(vi, rx);
+          posA.setZ(vi, rz);
+          posA.setY(vi, HW.heightAt(fx + rx, fz + rz) - hc + 0.4);
+        }
+        geo.computeVertexNormals();
+        const f = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: tex, color: tone, roughness: 1 }));
+        f.position.set(fx, hc, fz);
+        f.receiveShadow = true;
+        grp.add(f);
+      };
+      addDraped24(-560, 470, 104, 86, 0xb5bf62);
+      addDraped24(-90, 260, 88, 72, 0xc9a94e);
+      addDraped24(205, 430, 96, 80, 0x8fae4c);
+      addDraped24(-690, 300, 110, 90, 0x9a7350);
+    }
+
+    // Two more approach plots under the landing path, filling the
+    // foreground grass the landing camera crosses.
+    for (const [fx, fz, tone] of [[300, 1520, 0xc9a94e], [520, 1500, 0x8fae4c]]) {
+      const h = HW.heightAt(fx, fz);
+      const f = new THREE.Mesh(
+        new THREE.PlaneGeometry(68, 54),
+        new THREE.MeshStandardMaterial({ map: HW.fieldTexture(), color: tone, roughness: 1 })
+      );
+      f.rotation.x = -Math.PI / 2;
+      f.rotation.z = (rng() - 0.5) * 0.2;
+      f.position.set(fx, h + 0.3, fz);
+      f.receiveShadow = true;
+      grp.add(f);
+    }
+
     scene.add(grp);
   }
 
